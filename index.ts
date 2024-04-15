@@ -4,6 +4,7 @@ import { join } from "path";
 import fs from "fs";
 import { convertToDocx } from "./fileConvertor";
 import { getButtons } from "./options";
+import { runFileConvert } from "./functions";
 
 
 const token: string = "6941832197:AAGHHf1I5QVHGKXsRXmMGbb_8db825jj2oM";
@@ -43,7 +44,7 @@ declare module "telegraf" {
         ctx.deleteMessage(language_button_id)
     });
     bot.action('russian', (ctx) => {
-        ctx.reply('privet ruskiy');
+        ctx.reply('Здравствуйте, пришлите файл, который вы хотите конвертировать');
         ctx.language = Languages.ru;
         ctx.deleteMessage(language_button_id)
     });
@@ -60,15 +61,17 @@ declare module "telegraf" {
 
 
     bot.on("document", async(ctx) => {
+        console.log("run");
+        
         const document = ctx.message.document;
         let mineType: string = "txt";
-        // const mine_type = document.mime_type?.split("/")[1];
         const mine_type: Array<string> | undefined = document.file_name?.split(".");
         if(mine_type){
              mineType = mine_type[mine_type?.length - 1];
             console.log("mineType", mineType);
         }
-        const fileLink = await ctx.telegram.getFileLink(document.file_id);
+        let fileLink = await ctx.telegram.getFileLink(document.file_id);
+console.log("file link", fileLink);
 
         let message_to_send: string;
 
@@ -85,46 +88,12 @@ declare module "telegraf" {
         const file_name: Array<any> = fileLink.pathname.split("/");
         let ready_name: string = file_name[file_name.length - 1]
         ready_name = ready_name.split(".")[0];
+        console.log("redy name", ready_name);
+        
 
         const buttons = getButtons(mineType);
         await ctx.replyWithHTML(message_to_send, Markup.inlineKeyboard(buttons))
 
-        
-        async function runFileConvert(inputFilePath: string, outputFilePath: string, type: string){
-            try{
-                // Convert file
-                console.log(join(__dirname, "upload", `${ready_name}.pdf`));
-                await convertToDocx(inputFilePath,outputFilePath, type).then(() => {}).catch((err) => {
-                    console.log("error while uploading");
-                    ctx.reply("Your file is invalid")
-                });
-
-                // send local document
-                async  function sendLocalDocument(){
-                    const documentFilePath = join(__dirname, "upload", `${ready_name}.${type}`);
-  
-                    // Check if the file exists
-                if (fs.existsSync(documentFilePath)) {
-                  
-                  await ctx.replyWithDocument({ source: documentFilePath})
-                    .catch((error) => {
-                      console.error('Error sending document:', error);
-                    })
-                  await fs.unlinkSync(documentFilePath)
-                } else {
-                  console.error('File does not exist:', documentFilePath);
-                }
-                }
-                // send local document
-
-               setTimeout(() => {
-                sendLocalDocument()
-               }, 15000)
-
-            }catch(err){
-                console.log(err);
-            }
-        }
        
         // Call file convertor
         
@@ -132,7 +101,7 @@ declare module "telegraf" {
             console.log("query", );
             const button_id = ctx.callbackQuery.message.message_id;
             const type: string = ctx.callbackQuery.data
-            runFileConvert(fileLink.href, join(__dirname, "/upload"), type)
+            runFileConvert(ctx, fileLink.href, join(__dirname, "/upload"), type, ready_name)
             ctx.deleteMessage(button_id)
         })
     })
